@@ -38,7 +38,7 @@ if user_message := st.chat_input("यहाँ अपना सवाल लि�
             # --- GOOGLE GEMINI ---
             if ai_option == "Google Gemini":
                 genai.configure(api_key=user_api_key)
-                model = genai.GenerativeModel('gemini-pro')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 response = model.generate_content(user_message)
                 bot_reply = response.text
             
