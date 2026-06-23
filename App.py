@@ -270,4 +270,4 @@ elif st.session_state.current_view == "chat":
             
         except Exception as e:
             st.error(f"एरर आया: {e}")
-    
+        
