@@ -13,7 +13,7 @@ ai_option = st.selectbox(
     ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
 )
 
-# 2. यूजर से API Key लेना
+# 2. USER से API Key लेना
 user_api_key = st.text_input(f"अपनी {ai_option} API Key यहाँ पेस्ट करें:", type="password")
 
 # चैट हिस्ट्री सेट करना
@@ -38,7 +38,7 @@ if user_message := st.chat_input("यहाँ अपना सवाल लि�
             # --- GOOGLE GEMINI ---
             if ai_option == "Google Gemini":
                 genai.configure(api_key=user_api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-pro')
                 response = model.generate_content(user_message)
                 bot_reply = response.text
             
