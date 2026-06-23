@@ -5,7 +5,40 @@ from groq import Groq
 
 st.set_page_config(page_title="Gaurav's Multi-AI Chatbot", page_icon="🤖")
 
-# --- 1. मेमोरी (Session State) सेट करना ---
+# --- 1. दाईं (Right) और बाईं (Left) तरफ मैसेज दिखाने के लिए CSS ---
+st.markdown("""
+<style>
+    .user-msg-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+    }
+    .user-msg {
+        background-color: #2b5c8f;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 15px 15px 0px 15px;
+        max-width: 75%;
+        text-align: left;
+    }
+    .bot-msg-container {
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 10px;
+    }
+    .bot-msg {
+        background-color: #2d2d2d;
+        color: #f0f2f6;
+        padding: 10px 15px;
+        border-radius: 15px 15px 15px 0px;
+        max-width: 75%;
+        text-align: left;
+        border: 1px solid #4a4a4a;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 2. मेमोरी (Session State) सेट करना ---
 if "saved_ai" not in st.session_state:
     st.session_state.saved_ai = "Google Gemini"
 if "saved_key" not in st.session_state:
@@ -13,7 +46,7 @@ if "saved_key" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 2. ब्राउज़र URL / फ़ोन बैक बटन सपोर्ट ---
+# --- 3. ब्राउज़र URL / फ़ोन बैक बटन सपोर्ट ---
 query_params = st.query_params
 
 if "page" not in query_params:
@@ -21,12 +54,11 @@ if "page" not in query_params:
 elif query_params["page"] == "chat":
     st.session_state.keys_saved = True
 
-# --- 3. पहला पेज: SIMPLE SETUP PAGE ---
+# --- 4. पहला पेज: SETUP PAGE ---
 if not st.session_state.keys_saved:
     st.title("🔑 Gaurav's AI Setup")
     st.write("चैट शुरू करने से पहले अपना AI और API Key सेट करें।")
     
-    # सिर्फ 2 ही ऑप्शन बॉक्स (जैसा आप चाहते थे!)
     ai_choice = st.selectbox(
         "कौन सा AI इस्तेमाल करना चाहते हैं?",
         ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
@@ -34,40 +66,41 @@ if not st.session_state.keys_saved:
     
     key_input = st.text_input(f"अपनी {ai_choice} API Key यहाँ पेस्ट करें:", type="password")
     
-    # OK BUTTON
     if st.button("OK - Save & Start Chatting 🚀", use_container_width=True):
         if not key_input:
             st.error(f"कृपया आगे बढ़ने के लिए {ai_choice} की API Key ज़रूर डालें!")
         else:
-            # चुनी हुई चाबी और मॉडल मेमोरी में सेव करना
             st.session_state.saved_ai = ai_choice
             st.session_state.saved_key = key_input
-            
-            # यूआरएल में '?page=chat' जोड़ना (ताकि फ़ोन का बैक बटन काम करे)
             st.query_params["page"] = "chat"
             st.rerun()
 
-# --- 4. दूसरा पेज: NEW CHAT PAGE ---
+# --- 5. दूसरा पेज: NEW CHAT PAGE ---
 else:
     with st.sidebar:
         st.header("⚙️ Settings")
         st.write(f"🤖 **Active AI:** {st.session_state.saved_ai}")
         st.write("---")
         if st.button("🔄 Change AI / Reset"):
-            st.query_params.clear()  # यूआरएल साफ़ करके वापस सेटअप पेज पर भेजेगा
+            st.query_params.clear()
             st.rerun()
         st.write("💡 **टिप:** आप अपने **फ़ोन का बैक बटन** दबाकर भी वापस जा सकते हैं!")
 
-    st.title(f"🤖 Gaurav's {st.session_state.saved_ai} Chat")
-    
-    # पुरानी चैट हिस्ट्री दिखाना
+    st.title(f"🤖 Gaurav's Chat Room")
+    st.write(f"शुरू करें बातचीत ({st.session_state.saved_ai} के साथ)")
+    st.write("---")
+
+    # कस्टम CSS के ज़रिये चैट हिस्ट्री दिखाना
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if message["role"] == "user":
+            st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="bot-msg-container"><div class="bot-msg">🤖 <b>AI:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
 
     # चैट इनपुट बॉक्स
     if user_message := st.chat_input("यहाँ अपना सवाल लिखें..."):
-        st.chat_message("user").markdown(user_message)
+        # यूजर का मैसेज तुरंत दाईं तरफ दिखाना और सेव करना
+        st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{user_message}</div></div>', unsafe_allow_html=True)
         st.session_state.messages.append({"role": "user", "content": user_message})
 
         try:
@@ -97,11 +130,10 @@ else:
                 )
                 bot_reply = response.choices[0].message.content
 
-            with st.chat_message("assistant"):
-                st.markdown(bot_reply)
+            # AI का जवाब बाईं तरफ सेव करना
             st.session_state.messages.append({"role": "assistant", "content": bot_reply})
             st.rerun()
             
         except Exception as e:
-            st.error(f"एरर आया! कृपया चेक करें कि की (Key) सही है या नहीं। एरर: {e}")
-            
+            st.error(f"एरर आया! एरर: {e}")
+                
