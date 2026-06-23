@@ -2,72 +2,32 @@ import streamlit as st
 import google.generativeai as genai
 from groq import Groq
 import openai
-import urllib.parse
+import streamlit.components.v1 as components
 
 # --- पूरे पेज पर चैट फैलाने के लिए Config ---
 st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 1. प्रीमियम फुल-पेज चैट और गोल शेयर बटन स्टाइल ---
+# --- 1. प्रीमियम फुल-पेज चैट स्टाइल ---
 st.markdown("""
 <style>
-    /* साइडबार को छुपाना ताकि चैट पूरे पेज पर आए */
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-    [data-testid="collapsedControl"] {
-        display: block;
-    }
+    /* साइडबार को छुपाना */
+    [data-testid="stSidebar"] { display: none; }
+    [data-testid="collapsedControl"] { display: block; }
     
-    /* चैट बबल्स को पूरी चौड़ाई (Full Width) देना */
+    /* चैट बबल्स फुल विड्थ */
     .user-msg-container { display: flex; justify-content: flex-end; margin-bottom: 10px; width: 100%; }
     .user-msg { 
         background: linear-gradient(135deg, #00c6ff, #0072ff); 
         color: white; padding: 14px 20px; border-radius: 22px 22px 4px 22px; 
         max-width: 85%; font-family: 'Helvetica Neue', sans-serif; box-shadow: 0px 4px 10px rgba(0,114,255,0.25);
     }
-    .twin-msg-container { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 15px; width: 100%; }
+    .twin-msg-container { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 5px; width: 100%; }
     .twin-msg { 
         background: linear-gradient(135deg, #2c2d30, #1f2022); 
         color: #f5f5f5; padding: 14px 20px; border-radius: 22px 22px 22px 4px; 
         max-width: 85%; font-family: 'Helvetica Neue', sans-serif; border: 1px solid #3a3b3c; box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
     }
-    
-    /* छोटा और गोल शेयर बटन जो चैट से बिल्कुल सटा हुआ रहेगा */
-    .share-btn {
-        background-color: #3a3b3c;
-        color: #e4e6eb;
-        border: none;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        margin-top: 6px;
-        margin-left: 5px;
-        transition: background 0.2s;
-    }
-    .share-btn:hover {
-        background-color: #4e4f50;
-    }
 </style>
-
-<script>
-    // मोबाइल के सभी ऐप्स पर शेयर करने का जादुई फंक्शन
-    function shareContent(text) {
-        if (navigator.share) {
-            navigator.share({
-                title: 'Mirror AI Response',
-                text: text
-            }).catch(console.error);
-        } else {
-            // बैकअप अगर ब्राउज़र सपोर्ट न करे
-            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-        }
-    }
-</script>
 """, unsafe_allow_html=True)
 
 # --- 2. परमानेंट मेमोरी स्टोरेज (Session State) ---
@@ -76,7 +36,7 @@ if "saved_key" not in st.session_state: st.session_state.saved_key = ""
 if "twin_personality" not in st.session_state: st.session_state.twin_personality = ""
 if "messages" not in st.session_state: st.session_state.messages = []
 
-# हार्डवेयर बैक बटन के लिए यूआरएल ट्रैकिंग
+# हार्डवेयर बैक बटन ट्रैकिंग
 query_params = st.query_params
 if "page" not in query_params:
     st.session_state.keys_saved = False
@@ -92,11 +52,10 @@ if not st.session_state.keys_saved:
         "कौन सा AI इस्तेमाल करना चाहते हैं?",
         ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
     )
-    
     key_input = st.text_input(f"अपनी {ai_choice} API Key यहाँ पेस्ट करें:", type="password")
     
     personality_input = st.text_area(
-        "एआई को अपने बारे में लिखकर बताएं (ट्रेनिंग डेटा):",
+        "एआई को अपने बारे में शुरूआती ट्रेनिंग दें:",
         placeholder="जैसे: मेरा नाम गौरव है। मैं दोस्तों से 'भाई' करके बात करता हूँ...",
         height=100
     )
@@ -111,12 +70,10 @@ if not st.session_state.keys_saved:
             st.query_params["page"] = "chat"
             st.rerun()
 
-# --- 4. दूसरा पेज: NEW FULL PAGE CHAT ---
+# --- 4. दूसरा पेज: NEW FULL PAGE CHAT WITH AUTO-LEARNING ---
 else:
-    # साइडबार को छोटा कर दिया है, टॉप लेफ्ट बटन दबाकर देखा जा सकता है
     with st.sidebar:
         st.header("⚙️ Settings")
-        st.write(f"🤖 **Active AI:** {st.session_state.saved_ai}")
         if st.button("🔄 Change AI / Reset"):
             st.query_params.clear()
             st.rerun()
@@ -124,21 +81,36 @@ else:
     st.title(f"🤖 {st.session_state.saved_ai} Chatroom")
     st.write("---")
 
-    # चैट हिस्ट्री (फुल विड्थ और गोल बटन के साथ)
+    # चैट हिस्ट्री दिखाना
     for index, message in enumerate(st.session_state.messages):
         if message["role"] == "user":
             st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
         else:
-            # सुरक्षित क्लीन टेक्स्ट बनाना बिना इनवर्टेड कॉमा की गड़बड़ के
-            clean_text = message["content"].replace("'", "\\'").replace("\n", " ")
-            
-            # चैट और उसके नीचे सटा हुआ छोटा गोल बटन
+            # मैसेज डिस्प्ले
             st.markdown(f"""
             <div class="twin-msg-container">
                 <div class="twin-msg">🧠 <b>Mirror Twin:</b><br>{message["content"]}</div>
-                <button class="share-btn" onclick="shareContent('{clean_text}')" title="Share">🔗</button>
             </div>
             """, unsafe_allow_html=True)
+            
+            # नेटिव शेयर पॉप-अप बटन (सुरक्षित HTML Component के ज़रिए)
+            # यह क्रैश-प्रूफ है और सीधा फोन के शेयर सिस्टम को ट्रिगर करेगा
+            html_btn = f"""
+            <button onclick="share()" style="background-color: #3a3b3c; color: #e4e6eb; border: none; padding: 6px 12px; border-radius: 12px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; font-family: sans-serif;">🔗 Share / Send to Apps</button>
+            <script>
+                function share() {{
+                    if (navigator.share) {{
+                        navigator.share({{
+                            title: 'Mirror AI',
+                            text: `{message["content"]}`
+                        }});
+                    }} else {{
+                        window.open('https://wa.me/?text=' + encodeURIComponent(`{message["content"]}`), '_blank');
+                    }}
+                }}
+            </script>
+            """
+            components.html(html_btn, height=35)
 
     # चैट इनपुट बॉक्स
     if user_message := st.chat_input("यहाँ अपना सवाल लिखें..."):
@@ -150,27 +122,42 @@ else:
             current_ai = st.session_state.saved_ai
             current_key = st.session_state.saved_key
             
-            master_prompt = f"You are the digital twin of the user. Replicate their style based on this: {st.session_state.twin_personality}. User Message: {user_message}"
+            # 🔥 सुपर मास्टर प्रॉम्प्ट: यह पुरानी चैट हिस्ट्री भी साथ भेजेगा ताकि रोबोट रोज़ की बातों से सीखे!
+            ai_messages = [
+                {
+                    "role": "user" if current_ai != "Google Gemini" else "user", 
+                    "content": f"MASTER INSTRUCTION: You are the user's digital twin. Replicate their exact language, memory, and behavior based on this initial data: {st.session_state.twin_personality}. Also, analyze the following conversation history to learn their latest talking style and responses in real-time."
+                }
+            ]
+            
+            # पुरानी पूरी चैट हिस्ट्री को जोड़ना (ताकि एआई रोज़ की बातों से खुद को अपडेट करे)
+            for msg in st.session_state.messages:
+                ai_messages.append({"role": msg["role"], "content": msg["content"]})
             
             if current_ai == "Google Gemini":
                 genai.configure(api_key=current_key)
                 model = genai.GenerativeModel('gemini-2.5-flash')
-                response = model.generate_content(master_prompt)
+                # जेमिनी के लिए सारे मैसेजेस को कंबाइन करना
+                full_context = "\n".join([f"{m['role']}: {m['content']}" for m in ai_messages])
+                response = model.generate_content(full_context)
                 bot_reply = response.text
             
             elif current_ai == "Groq (Llama 3 - FREE)":
                 client = Groq(api_key=current_key)
+                # ग्रोक के मैसेजेस फ़ॉर्मेट को सही करना
+                formatted_msgs = [{"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]} for m in ai_messages]
                 completion = client.chat.completions.create(
                     model="llama3-8b-8192",
-                    messages=[{"role": "user", "content": master_prompt}]
+                    messages=formatted_msgs
                 )
                 bot_reply = completion.choices[0].message.content
             
             elif current_ai == "OpenAI (ChatGPT)":
                 client = openai.OpenAI(api_key=current_key)
+                formatted_msgs = [{"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]} for m in ai_messages]
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": master_prompt}]
+                    messages=formatted_msgs
                 )
                 bot_reply = response.choices[0].message.content
 
@@ -179,4 +166,4 @@ else:
             
         except Exception as e:
             st.error(f"एरर आया! एरर: {e}")
-            
+                                
