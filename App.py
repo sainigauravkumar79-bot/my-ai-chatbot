@@ -1,55 +1,70 @@
 import streamlit as st
 import openai
+import google.generativeai as genai
+from groq import Groq
 
-# ऐप का टाइटल और डिज़ाइन
-st.set_page_config(page_title="Gaurav's AI Chatbot", page_icon="🤖")
-st.title("🤖 Gaurav's Custom AI Chatbot")
-st.write("अपना OpenAI API Key डालिए और चैटबॉट का मज़ा लीजिए!")
+st.set_page_config(page_title="Gaurav's Multi-AI Chatbot", page_icon="🤖")
+st.title("🤖 Gaurav's Multi-AI Chatbot")
+st.write("अपनी पसंद का AI चुनिए, API Key डालिए और चैट करिए!")
 
-# 1. यूजर से उसकी API Key लेना
-user_api_key = st.text_input("अपनी OpenAI API Key यहाँ पेस्ट करें:", type="password")
+# 1. AI प्लेटफॉर्म चुनने का ड्रॉपडाउन
+ai_option = st.selectbox(
+    "कौन सा AI इस्तेमाल करना चाहते हैं?",
+    ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
+)
 
-# 2. चैट हिस्ट्री (मैसेज याद रखने के लिए)
+# 2. यूजर से API Key लेना
+user_api_key = st.text_input(f"अपनी {ai_option} API Key यहाँ पेस्ट करें:", type="password")
+
+# चैट हिस्ट्री सेट करना
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# पुरानी चैट स्क्रीन पर दिखाना
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 3. यूजर का इनपुट बॉक्स (सवाल पूछने के लिए)
+# 3. चैट इनपुट बॉक्स
 if user_message := st.chat_input("यहाँ अपना सवाल लिखें..."):
-    
-    # अगर यूजर ने API Key नहीं डाली है
     if not user_api_key:
-        st.error("कृपया पहले ऊपर अपनी OpenAI API Key डालें!")
+        st.error(f"कृपया पहले ऊपर अपनी {ai_option} API Key डालें!")
     else:
-        # यूजर का मैसेज स्क्रीन पर दिखाना और सेव करना
         st.chat_message("user").markdown(user_message)
         st.session_state.messages.append({"role": "user", "content": user_message})
 
         try:
-            # यूजर की API Key का इस्तेमाल करके OpenAI को कनेक्ट करना
-            client = openai.OpenAI(api_key=user_api_key)
+            bot_reply = ""
             
-            # AI से जवाब मांगना
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo", # आप यहाँ gpt-4o-mini भी रख सकते हैं
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
-                ]
-            )
+            # --- GOOGLE GEMINI ---
+            if ai_option == "Google Gemini":
+                genai.configure(api_key=user_api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(user_message)
+                bot_reply = response.text
             
-            # AI का जवाब स्क्रीन पर दिखाना
-            bot_reply = response.choices[0].message.content
+            # --- GROQ (FREE LLAMA) ---
+            elif ai_option == "Groq (Llama 3 - FREE)":
+                client = Groq(api_key=user_api_key)
+                completion = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[{"role": "user", "content": user_message}]
+                )
+                bot_reply = completion.choices[0].message.content
+            
+            # --- OPENAI ---
+            elif ai_option == "OpenAI (ChatGPT)":
+                client = openai.OpenAI(api_key=user_api_key)
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": user_message}]
+                )
+                bot_reply = response.choices[0].message.content
+
+            # जवाब स्क्रीन पर दिखाना और सेव करना
             with st.chat_message("assistant"):
                 st.markdown(bot_reply)
-            
-            # जवाब को हिस्ट्री में सेव करना
             st.session_state.messages.append({"role": "assistant", "content": bot_reply})
             
         except Exception as e:
-            st.error(f"कुछ गड़बड़ हुई! चेक करें कि आपकी API Key सही है या नहीं। एरर: {e}")
-          
+            st.error(f"एरर आया! कृपया चेक करें कि की (Key) सही है या नहीं। एरर: {e}")
+            
