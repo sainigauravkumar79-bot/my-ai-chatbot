@@ -64,10 +64,6 @@ if st.session_state.current_view != "setup":
         
         if jarvis_toggle != st.session_state.jarvis_mode:
             st.session_state.jarvis_mode = jarvis_toggle
-            if jarvis_toggle == "On":
-                st.toast("⚡ Jarvis Protocol Activated!", icon="🚀")
-            else:
-                st.toast("💤 Jarvis Mode Disabled.", icon="⏸️")
             st.rerun()
 
         st.write("---")
@@ -84,6 +80,7 @@ if st.session_state.current_view != "setup":
             st.query_params.clear()
             st.session_state.current_view = "setup"
             st.session_state.messages = []
+            st.session_state.saved_key = ""
             st.rerun()
 
 # --- VIEW 1: SETUP PAGE ---
@@ -162,22 +159,18 @@ elif st.session_state.current_view == "chat":
 
     st.write("---")
     
-    # इनपुट वेरिएबल्स को पहले ही खाली डिफाइन करना ताकि एरर न आये
     user_message = ""
     
-    # अगर जार्विस मोड ON है तो माइक दिखाओ
     if st.session_state.jarvis_mode == "On":
         st.markdown("### 🎙️ Jarvis Voice Terminal:")
         voice_input = st.audio_input("कमांड बोलें:")
         if voice_input:
             user_message = "Jarvis Protocol Triggered: यूजर ने बोलकर कमांड दी है। उनके वॉयस टोन, फीलिंग्स और क्लोन का उपयोग करके कॉल या वॉयस मैसेज भेजने की स्थिति संभालो।"
 
-    # टेक्स्ट बॉक्स हमेशा काम करेगा
     chat_box_input = st.chat_input("ट्विन से कुछ भी कहें...")
     if chat_box_input:
         user_message = chat_box_input
 
-    # अगर यूजर ने कुछ इनपुट दिया है
     if user_message:
         st.session_state.messages.append({"role": "user", "content": user_message})
 
@@ -187,7 +180,7 @@ elif st.session_state.current_view == "chat":
             current_key = st.session_state.saved_key
             
             if not current_key:
-                bot_reply = "⚠️ कृपया सेटअप पेज पर जाकर अपनी API Key दर्ज करें।"
+                bot_reply = "⚠️ कृपया साइडबार में 'Back' बटन दबाकर सेटअप पेज पर जाएं और अपनी API Key दोबारा दर्ज करें।"
             else:
                 master_prompt = f"""
                 MASTER DIRECTIVE: Replicate user's behavior based on this data: 
@@ -209,8 +202,9 @@ elif st.session_state.current_view == "chat":
                 
                 elif current_ai == "Groq (Llama 3 - FREE)":
                     client = Groq(api_key=current_key)
+                    # 🔥 यहाँ बंद हुए मॉडल को नए 'llama-3.1-8b-instant' मॉडल से बदल दिया गया है
                     completion = client.chat.completions.create(
-                        model="llama3-8b-8192",
+                        model="llama-3.1-8b-instant",
                         messages=[{"role": "user", "content": master_prompt}]
                     )
                     bot_reply = completion.choices[0].message.content
@@ -227,4 +221,5 @@ elif st.session_state.current_view == "chat":
             st.rerun()
             
         except Exception as e:
-            st.error(f"API Error: {e}. कृपया सुनिश्चित करें कि आपकी API Key सही है।")
+            st.error(f"API Error: {e}")
+    
