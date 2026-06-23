@@ -2,10 +2,11 @@ import streamlit as st
 import google.generativeai as genai
 from groq import Groq
 import openai
+import urllib.parse
 
 st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide")
 
-# --- 1. MIRROR AI प्रीमियम चैट बबल्स (CSS Style) ---
+# --- 1. प्रीमियम चैट और बटन स्टाइल (CSS Style) ---
 st.markdown("""
 <style>
     .user-msg-container { display: flex; justify-content: flex-end; margin-bottom: 15px; }
@@ -36,10 +37,10 @@ if "page" not in query_params:
 elif query_params["page"] == "chat":
     st.session_state.keys_saved = True
 
-# --- 3. पहला पेज: MIRROR AI ट्रेनिंग और सेटअप ---
+# --- 3. पहला पेज: MIRROR AI एडवांस्ड ट्रेनिंग और सेटअप ---
 if not st.session_state.keys_saved:
     st.title("🧠 MIRROR AI: Personal Digital Twin")
-    st.subheader("अपनी एआई चाबी डालें और अपने डिजिटल जुड़वां को ट्रेन करें")
+    st.subheader("अपनी एआई चाबी डालें और अपने डिजिटल जुड़वां को एडवांस ट्रेन करें")
     st.write("---")
     
     col1, col2 = st.columns(2)
@@ -55,30 +56,38 @@ if not st.session_state.keys_saved:
     with col2:
         st.markdown("### 📝 स्टेप 2: अपने जुड़वां (Twin) को ट्रेन करें")
         personality_input = st.text_area(
-            "एआई को अपने बारे में बताएं (ट्रेनिंग डेटा):",
-            placeholder="उदाहरण: मेरा नाम गौरव है। मैं हिंदी और इंग्लिश मिक्स बोलता हूँ। बात करते समय 'यार', 'भाई' शब्दों का इस्तेमाल करता हूँ। मैं बहुत मज़ाकिया हूँ लेकिन काम को लेकर सीरियस रहता हूँ...",
-            height=125
+            "एआई को अपने बारे में लिखकर बताएं:",
+            placeholder="जैसे: मेरा नाम गौरव है। मैं दोस्तों से 'भाई' करके बात करता हूँ...",
+            height=80
         )
+        
+        # New Feature: फ़ाइल अपलोडर (मेमोरी मेश)
+        uploaded_file = st.file_uploader("🧠 या अपनी पुरानी चैट्स/डायरी की TXT फ़ाइल अपलोड करें (ऑप्शनल):", type=["txt"])
+        file_context = ""
+        if uploaded_file is not None:
+            file_context = "\nADDITIONAL UPLOADED TRAINING DATA:\n" + str(uploaded_file.read().decode("utf-8"))
+            st.success("ट्रेनिंग फ़ाइल सफलतापूर्वक लोड हो गई!")
         
     st.write("---")
     if st.button("🔥 ACTIVATE MY DIGITAL TWIN 🚀", use_container_width=True):
         if not key_input:
             st.error("आगे बढ़ने के लिए API Key डालना अनिवार्य है!")
-        elif not personality_input:
-            st.error("अपने ट्विन को एक्टिवेट करने के लिए उसके ट्रेनिंग डेटा बॉक्स में अपने बारे में कुछ लाइनें ज़रूर लिखें!")
+        elif not personality_input and not file_context:
+            st.error("अपने ट्विन को एक्टिवेट करने के लिए लिखकर बताएं या कोई फ़ाइल अपलोड करें!")
         else:
             st.session_state.saved_ai = ai_choice
             st.session_state.saved_key = key_input
-            st.session_state.twin_personality = personality_input
+            # दोनों टेक्स्ट और फ़ाइल डेटा को मिलाकर मास्टर पर्सनैलिटी बनाना
+            st.session_state.twin_personality = personality_input + file_context
             st.query_params["page"] = "chat"
             st.rerun()
 
-# --- 4. दूसरा पेज: MIRROR AI LIVE CHAT ROOM ---
+# --- 4. दूसरा पेज: MIRROR AI ADVANCED CHAT ROOM ---
 else:
     with st.sidebar:
         st.header("🧠 Mirror Core Status")
         st.success(f"🟢 {st.session_state.saved_ai} Active")
-        st.info("💡 आपका ट्विन आपके द्वारा दिए गए डेटा के आधार पर पूरी तरह सिंक हो चुका है।")
+        st.info("💡 आपका ट्विन पूरी तरह सिंक हो चुका है और एक्शन लेने के लिए तैयार है।")
         st.write("---")
         if st.button("🔄 री-ट्रेन करें / लॉगआउट"):
             st.query_params.clear()
@@ -86,18 +95,22 @@ else:
         st.write("👉 अपने **फ़ोन का बैक बटन** दबाकर भी आप ट्रेनिंग पेज पर वापस जा सकते हैं।")
 
     st.title("👥 Your Digital Twin Chatroom")
-    st.write("अपने ही डिजिटल रूप से बात करके देखें कि वह आपके फैसलों और अंदाज़ से कितना मैच करता है।")
     st.write("---")
 
-    # चैट हिस्ट्री (मैसेज अलाइनमेंट के साथ)
-    for message in st.session_state.messages:
+    # चैट हिस्ट्री दिखाना (व्हाट्सएप शेयर फीचर के साथ)
+    for index, message in enumerate(st.session_state.messages):
         if message["role"] == "user":
             st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="twin-msg-container"><div class="twin-msg">🧠 <b>Mirror Twin:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
+            
+            # New Feature: प्रत्येक रिप्लाई के नीचे व्हाट्सएप शेयर बटन
+            encoded_reply = urllib.parse.quote(message["content"])
+            whatsapp_url = f"https://wa.me/?text={encoded_reply}"
+            st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="background-color:#25D366; color:white; border:none; padding:5px 10px; border-radius:10px; cursor:pointer; font-size:12px; margin-bottom:15px;">📲 Share on WhatsApp</button></a>', unsafe_allow_html=True)
 
     # चैट इनपुट बॉक्स
-    if user_message := st.chat_input("अपने डिजिटल ट्विन से कुछ पूछें या कोई स्थिति दें..."):
+    if user_message := st.chat_input("अपने डिजिटल ट्विन को कोई मैसेज ड्राफ्ट करने को कहें..."):
         st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{user_message}</div></div>', unsafe_allow_html=True)
         st.session_state.messages.append({"role": "user", "content": user_message})
 
@@ -106,15 +119,12 @@ else:
             current_ai = st.session_state.saved_ai
             current_key = st.session_state.saved_key
             
-            # एआई को उसका असली मकसद याद दिलाने के लिए मास्टर प्रॉम्ट (System Instruction)
             master_prompt = f"""
-            You are the digital twin (clone) of the user. You must replicate their personality perfectly based on the training data provided below.
-            Do NOT act like a generic AI assistant. Respond EXACTLY in the tone, language style, and decision-making matrix described.
-            
-            USER TRAINING DATA:
+            You are the digital twin (clone) of the user. Replicate their personality based on this data:
             {st.session_state.twin_personality}
             
-            Current User Message: {user_message}
+            Respond exactly in their tone and style.
+            User Message: {user_message}
             """
             
             if current_ai == "Google Gemini":
@@ -143,5 +153,4 @@ else:
             st.rerun()
             
         except Exception as e:
-            st.error(f"मिरर कोर एरर! कृपया अपनी API Key चेक करें। विवरण: {e}")
-                
+            st.error(f"मिरर कोर एरर! विवरण: {e}")
