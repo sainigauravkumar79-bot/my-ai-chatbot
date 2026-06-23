@@ -4,24 +4,70 @@ from groq import Groq
 import openai
 import urllib.parse
 
-st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide")
+# --- पूरे पेज पर चैट फैलाने के लिए Config ---
+st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 1. प्रीमियम चैट और बटन स्टाइल (CSS Style) ---
+# --- 1. प्रीमियम फुल-पेज चैट और गोल शेयर बटन स्टाइल ---
 st.markdown("""
 <style>
-    .user-msg-container { display: flex; justify-content: flex-end; margin-bottom: 15px; }
+    /* साइडबार को छुपाना ताकि चैट पूरे पेज पर आए */
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+    [data-testid="collapsedControl"] {
+        display: block;
+    }
+    
+    /* चैट बबल्स को पूरी चौड़ाई (Full Width) देना */
+    .user-msg-container { display: flex; justify-content: flex-end; margin-bottom: 10px; width: 100%; }
     .user-msg { 
         background: linear-gradient(135deg, #00c6ff, #0072ff); 
-        color: white; padding: 12px 18px; border-radius: 20px 20px 0px 20px; 
-        max-width: 70%; font-family: 'Helvetica Neue', sans-serif; box-shadow: 0px 4px 10px rgba(0,114,255,0.3);
+        color: white; padding: 14px 20px; border-radius: 22px 22px 4px 22px; 
+        max-width: 85%; font-family: 'Helvetica Neue', sans-serif; box-shadow: 0px 4px 10px rgba(0,114,255,0.25);
     }
-    .twin-msg-container { display: flex; justify-content: flex-start; margin-bottom: 15px; }
+    .twin-msg-container { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 15px; width: 100%; }
     .twin-msg { 
-        background: linear-gradient(135deg, #3a3d40, #181717); 
-        color: #f5f5f5; padding: 12px 18px; border-radius: 20px 20px 20px 0px; 
-        max-width: 70%; font-family: 'Helvetica Neue', sans-serif; border: 1px solid #444; box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+        background: linear-gradient(135deg, #2c2d30, #1f2022); 
+        color: #f5f5f5; padding: 14px 20px; border-radius: 22px 22px 22px 4px; 
+        max-width: 85%; font-family: 'Helvetica Neue', sans-serif; border: 1px solid #3a3b3c; box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+    }
+    
+    /* छोटा और गोल शेयर बटन जो चैट से बिल्कुल सटा हुआ रहेगा */
+    .share-btn {
+        background-color: #3a3b3c;
+        color: #e4e6eb;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        margin-top: 6px;
+        margin-left: 5px;
+        transition: background 0.2s;
+    }
+    .share-btn:hover {
+        background-color: #4e4f50;
     }
 </style>
+
+<script>
+    // मोबाइल के सभी ऐप्स पर शेयर करने का जादुई फंक्शन
+    function shareContent(text) {
+        if (navigator.share) {
+            navigator.share({
+                title: 'Mirror AI Response',
+                text: text
+            }).catch(console.error);
+        } else {
+            // बैकअप अगर ब्राउज़र सपोर्ट न करे
+            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+        }
+    }
+</script>
 """, unsafe_allow_html=True)
 
 # --- 2. परमानेंट मेमोरी स्टोरेज (Session State) ---
@@ -37,80 +83,65 @@ if "page" not in query_params:
 elif query_params["page"] == "chat":
     st.session_state.keys_saved = True
 
-# --- 3. पहला पेज: MIRROR AI एडवांस्ड ट्रेनिंग और सेटअप ---
+# --- 3. पहला पेज: SETUP PAGE ---
 if not st.session_state.keys_saved:
-    st.title("🧠 MIRROR AI: Personal Digital Twin")
-    st.subheader("अपनी एआई चाबी डालें और अपने डिजिटल जुड़वां को एडवांस ट्रेन करें")
-    st.write("---")
+    st.title("🔑 Gaurav's AI Setup")
+    st.write("चैट शुरू करने से पहले अपना AI और API Key सेट करें।")
     
-    col1, col2 = st.columns(2)
+    ai_choice = st.selectbox(
+        "कौन सा AI इस्तेमाल करना चाहते हैं?",
+        ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
+    )
     
-    with col1:
-        st.markdown("### 🔑 स्टेप 1: इंफ्रास्ट्रक्चर लिंक करें")
-        ai_choice = st.selectbox(
-            "अपना पसंदीदा AI इंजन चुनें:",
-            ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)")
-        )
-        key_input = st.text_input(f"अपनी {ai_choice} API Key यहाँ पेस्ट करें:", type="password")
-        
-    with col2:
-        st.markdown("### 📝 स्टेप 2: अपने जुड़वां (Twin) को ट्रेन करें")
-        personality_input = st.text_area(
-            "एआई को अपने बारे में लिखकर बताएं:",
-            placeholder="जैसे: मेरा नाम गौरव है। मैं दोस्तों से 'भाई' करके बात करता हूँ...",
-            height=80
-        )
-        
-        # New Feature: फ़ाइल अपलोडर (मेमोरी मेश)
-        uploaded_file = st.file_uploader("🧠 या अपनी पुरानी चैट्स/डायरी की TXT फ़ाइल अपलोड करें (ऑप्शनल):", type=["txt"])
-        file_context = ""
-        if uploaded_file is not None:
-            file_context = "\nADDITIONAL UPLOADED TRAINING DATA:\n" + str(uploaded_file.read().decode("utf-8"))
-            st.success("ट्रेनिंग फ़ाइल सफलतापूर्वक लोड हो गई!")
-        
-    st.write("---")
-    if st.button("🔥 ACTIVATE MY DIGITAL TWIN 🚀", use_container_width=True):
+    key_input = st.text_input(f"अपनी {ai_choice} API Key यहाँ पेस्ट करें:", type="password")
+    
+    personality_input = st.text_area(
+        "एआई को अपने बारे में लिखकर बताएं (ट्रेनिंग डेटा):",
+        placeholder="जैसे: मेरा नाम गौरव है। मैं दोस्तों से 'भाई' करके बात करता हूँ...",
+        height=100
+    )
+    
+    if st.button("OK - Save & Start Chatting 🚀", use_container_width=True):
         if not key_input:
-            st.error("आगे बढ़ने के लिए API Key डालना अनिवार्य है!")
-        elif not personality_input and not file_context:
-            st.error("अपने ट्विन को एक्टिवेट करने के लिए लिखकर बताएं या कोई फ़ाइल अपलोड करें!")
+            st.error(f"कृपया आगे बढ़ने के लिए {ai_choice} की API Key ज़रूर डालें!")
         else:
             st.session_state.saved_ai = ai_choice
             st.session_state.saved_key = key_input
-            # दोनों टेक्स्ट और फ़ाइल डेटा को मिलाकर मास्टर पर्सनैलिटी बनाना
-            st.session_state.twin_personality = personality_input + file_context
+            st.session_state.twin_personality = personality_input
             st.query_params["page"] = "chat"
             st.rerun()
 
-# --- 4. दूसरा पेज: MIRROR AI ADVANCED CHAT ROOM ---
+# --- 4. दूसरा पेज: NEW FULL PAGE CHAT ---
 else:
+    # साइडबार को छोटा कर दिया है, टॉप लेफ्ट बटन दबाकर देखा जा सकता है
     with st.sidebar:
-        st.header("🧠 Mirror Core Status")
-        st.success(f"🟢 {st.session_state.saved_ai} Active")
-        st.info("💡 आपका ट्विन पूरी तरह सिंक हो चुका है और एक्शन लेने के लिए तैयार है।")
-        st.write("---")
-        if st.button("🔄 री-ट्रेन करें / लॉगआउट"):
+        st.header("⚙️ Settings")
+        st.write(f"🤖 **Active AI:** {st.session_state.saved_ai}")
+        if st.button("🔄 Change AI / Reset"):
             st.query_params.clear()
             st.rerun()
-        st.write("👉 अपने **फ़ोन का बैक बटन** दबाकर भी आप ट्रेनिंग पेज पर वापस जा सकते हैं।")
 
-    st.title("👥 Your Digital Twin Chatroom")
+    st.title(f"🤖 {st.session_state.saved_ai} Chatroom")
     st.write("---")
 
-    # चैट हिस्ट्री दिखाना (व्हाट्सएप शेयर फीचर के साथ)
+    # चैट हिस्ट्री (फुल विड्थ और गोल बटन के साथ)
     for index, message in enumerate(st.session_state.messages):
         if message["role"] == "user":
             st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="twin-msg-container"><div class="twin-msg">🧠 <b>Mirror Twin:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
+            # सुरक्षित क्लीन टेक्स्ट बनाना बिना इनवर्टेड कॉमा की गड़बड़ के
+            clean_text = message["content"].replace("'", "\\'").replace("\n", " ")
             
-            # New Feature: प्रत्येक रिप्लाई के नीचे व्हाट्सएप शेयर बटन
-            encoded_reply = urllib.parse.quote(message["content"])
-            whatsapp_url = f"https://wa.me/?text={encoded_reply}"
-            st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="background-color:#25D366; color:white; border:none; padding:5px 10px; border-radius:10px; cursor:pointer; font-size:12px; margin-bottom:15px;">📲 Share on WhatsApp</button></a>', unsafe_allow_html=True)
+            # चैट और उसके नीचे सटा हुआ छोटा गोल बटन
+            st.markdown(f"""
+            <div class="twin-msg-container">
+                <div class="twin-msg">🧠 <b>Mirror Twin:</b><br>{message["content"]}</div>
+                <button class="share-btn" onclick="shareContent('{clean_text}')" title="Share">🔗</button>
+            </div>
+            """, unsafe_allow_html=True)
 
     # चैट इनपुट बॉक्स
-    if user_message := st.chat_input("अपने डिजिटल ट्विन को कोई मैसेज ड्राफ्ट करने को कहें..."):
+    if user_message := st.chat_input("यहाँ अपना सवाल लिखें..."):
         st.markdown(f'<div class="user-msg-container"><div class="user-msg">🧑 <b>You:</b><br>{user_message}</div></div>', unsafe_allow_html=True)
         st.session_state.messages.append({"role": "user", "content": user_message})
 
@@ -119,13 +150,7 @@ else:
             current_ai = st.session_state.saved_ai
             current_key = st.session_state.saved_key
             
-            master_prompt = f"""
-            You are the digital twin (clone) of the user. Replicate their personality based on this data:
-            {st.session_state.twin_personality}
-            
-            Respond exactly in their tone and style.
-            User Message: {user_message}
-            """
+            master_prompt = f"You are the digital twin of the user. Replicate their style based on this: {st.session_state.twin_personality}. User Message: {user_message}"
             
             if current_ai == "Google Gemini":
                 genai.configure(api_key=current_key)
@@ -153,4 +178,5 @@ else:
             st.rerun()
             
         except Exception as e:
-            st.error(f"मिरर कोर एरर! विवरण: {e}")
+            st.error(f"एरर आया! एरर: {e}")
+            
