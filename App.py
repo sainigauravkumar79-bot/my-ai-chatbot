@@ -4,17 +4,13 @@ from groq import Groq
 import openai
 import streamlit.components.v1 as components
 
-# --- पूरे पेज पर चैट फैलाने के लिए Config ---
-st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide", initial_sidebar_state="collapsed")
+# --- पूरे पेज पर चैट फैलाने के लिए Config (शुरुआत में साइडबार खुला रहेगा) ---
+st.set_page_config(page_title="MIRROR AI - Your Digital Twin", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
-# --- 1. एडवांस कस्टम CSS स्टाइल (Custom Sidebar और यूआई) ---
+# --- 1. प्रीमियम यूआई सीएसएस (चैट बबल्स फुल विड्थ) ---
 st.markdown("""
 <style>
-    /* डिफ़ॉल्ट साइडबार को छुपाना */
-    [data-testid="stSidebar"] { display: none; }
-    [data-testid="collapsedControl"] { display: none; }
-    
-    /* चैट बबल्स फुल विड्थ */
+    /* चैट बबल्स फुल विड्थ और प्रीमियम लुक */
     .user-msg-container { display: flex; justify-content: flex-end; margin-bottom: 10px; width: 100%; }
     .user-msg { 
         background: linear-gradient(135deg, #00c6ff, #0072ff); 
@@ -30,29 +26,26 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. परमानेंट मेमोरी स्टोरेज (Session State) ---
+# --- 2. मेमोरी स्टोरेज (Session State) ---
 if "saved_ai" not in st.session_state: st.session_state.saved_ai = "Google Gemini"
 if "saved_key" not in st.session_state: st.session_state.saved_key = ""
 if "master_training" not in st.session_state: st.session_state.master_training = ""
 if "voice_training" not in st.session_state: st.session_state.voice_training = ""
 if "messages" not in st.session_state: st.session_state.messages = []
-if "menu_open" not in st.session_state: st.session_state.menu_open = False
-if "current_view" not in st.session_state: st.session_state.current_view = "chat" # chat, deep_train, setup
+if "current_view" not in st.session_state: st.session_state.current_view = "setup"
 
-# हार्डवेयर या यूआरएल ट्रैकिंग
+# यूआरएल ट्रैकिंग
 query_params = st.query_params
 if "page" not in query_params:
     st.session_state.current_view = "setup"
 elif query_params["page"] == "chat" and st.session_state.current_view == "setup":
     st.session_state.current_view = "chat"
 
-# --- 3. नैविगेशन हेडर (Back Arrow + 3 Lines Menu) ---
+# --- 3. असली नैटिव साइडबार (जैसे जेमिनी ऐप में है) ---
 if st.session_state.current_view != "setup":
-    col_nav1, col_nav2, _ = st.columns([1, 1, 10])
-    
-    with col_nav1:
-        # बैक एरो बटन - पिछले पेज पर जाने के लिए
-        if st.button("⬅️", help="Go Back"):
+    with st.sidebar:
+        # सबसे ऊपर बैक एरो बटन पिछले पेज पर जाने के लिए
+        if st.button("⬅️ Back", help="Go to previous page"):
             if st.session_state.current_view == "deep_train":
                 st.session_state.current_view = "chat"
             elif st.session_state.current_view == "chat":
@@ -60,34 +53,31 @@ if st.session_state.current_view != "setup":
                 st.query_params.clear()
             st.rerun()
             
-    with col_nav2:
-        # 3 लाइन्स (Hamburger) मेन्यू बटन - ओपन / क्लोज करने के लिए
-        if st.button("☰", help="Menu"):
-            st.session_state.menu_open = not st.session_state.menu_open
-            st.rerun()
-
-    # अगर मेन्यू ओपन है, तो स्क्रीन पर फुल लेंथ छोटा मेन्यू पैनल दिखेगा
-    if st.session_state.menu_open:
-        st.markdown("---")
-        st.markdown("### 📋 Navigation Menu")
-        if st.button("🧠 Deep Training (Add Text & Voice Details)", use_container_width=True):
+        st.markdown("## 🧠 Gemini Mirror")
+        st.write(f"🤖 **Active Core:** {st.session_state.saved_ai}")
+        st.write("---")
+        
+        # 🎯 आपका खास 'Training' ऑप्शन जिसपर क्लिक करने से नया पेज खुलेगा
+        if st.button("🏋️ Training", use_container_width=True, help="Train your bot with Text & Voice"):
             st.session_state.current_view = "deep_train"
-            st.session_state.menu_open = False # जाने के बाद मेन्यू क्लोज
             st.rerun()
-        if st.button("🔄 Reset AI / Logout", use_container_width=True):
+            
+        if st.button("💬 Chat Room", use_container_width=True):
+            st.session_state.current_view = "chat"
+            st.rerun()
+            
+        st.write("---")
+        if st.button("🔄 Reset / Logout", use_container_width=True):
             st.query_params.clear()
             st.session_state.current_view = "setup"
             st.session_state.messages = []
-            st.session_state.menu_open = False
             st.rerun()
-        st.markdown("---")
 
 # --- 4. व्यू कंट्रोलर (Views Switcher) ---
 
-# --- VIEW A: SETUP PAGE ---
+# --- VIEW 1: SETUP PAGE ---
 if st.session_state.current_view == "setup":
     st.title("🧠 MIRROR AI: Super-Brain Setup")
-    st.write("अपने एआई को अपनी लाइफस्टाइल सिखाने के लिए क्रेडेंशियल्स डालें।")
     st.write("---")
     
     ai_choice = st.selectbox("अपना एआई इंजन चुनें:", ("Google Gemini", "Groq (Llama 3 - FREE)", "OpenAI (ChatGPT)"))
@@ -95,7 +85,7 @@ if st.session_state.current_view == "setup":
     
     master_input = st.text_area(
         "अपने बारे में शुरूआती बातें लिखें:",
-        placeholder="जैसे: मेरा नाम गौरव है। मैं काम के समय प्रोफेशनल और दोस्तों के साथ चिल रहता हूँ...",
+        placeholder="जैसे: मेरा नाम गौरव है। मैं काम के समय प्रोफेशनल और दोस्तों के साथ चil रहता हूँ...",
         value=st.session_state.master_training,
         height=150
     )
@@ -111,36 +101,36 @@ if st.session_state.current_view == "setup":
             st.query_params["page"] = "chat"
             st.rerun()
 
-# --- VIEW B: DEEP TRAINING PAGE (New Feature - Text & Voice!) ---
+# --- VIEW 2: NEW TRAINING PAGE (Text & Voice Options Here!) ---
 elif st.session_state.current_view == "deep_train":
-    st.title("🚀 Deep Training Studio")
-    st.write("यहाँ अपने बारे में और अधिक बारीकियाँ जोड़ें ताकि आपका बॉट और ज़्यादा स्मार्ट बन सके।")
+    st.title("🏋️ Bot Training Studio")
+    st.write("यहाँ अपने बॉट को और डिटेल्स देकर सिखाएं ताकि वह आपकी तरह सोचना शुरू करे।")
     st.write("---")
     
-    # 1. एक्स्ट्रा टेक्स्ट इनपुट
+    # ऑप्शन 1: टेक्स्ट डिटेल्स
     extra_text = st.text_area(
-        "✍️ अपने बारे में और डिटेल्स यहाँ टाइप करें (जैसे आपकी पसंद, नापसंद, रूटीन):",
+        "✍️ Option 1: अपने बारे में और डिटेल्स यहाँ टाइप करें:",
         value=st.session_state.master_training,
         height=150
     )
     
-    # 2. वॉयस रिकॉर्डिंग इनपुट (Audio Recorder Component)
-    st.markdown("### 🎙️ या अपनी आवाज़ में बोलकर डिटेल्स रिकॉर्ड करें")
-    audio_value = st.audio_input("रिकॉर्ड बटन पर क्लिक करें और बोलना शुरू करें:")
+    # ऑप्शन 2: वॉयस रिकॉर्डिंग
+    st.markdown("### 🎙️ Option 2: अपनी आवाज़ में बोलकर डिटेल्स दें")
+    audio_value = st.audio_input("रिकॉर्ड बटन दबाएं और जो सिखाना है बोलें:")
     
     if audio_value:
         st.audio(audio_value, format="audio/wav")
-        st.success("🤖 वॉयस नोट जुड़ गया! (भविष्य में इसे सीधे टेक्स्ट में बदला जा सकेगा)")
-        st.session_state.voice_training = "\n[User provided a voice briefing detailing their personality/mood for extra accuracy.]"
+        st.success("🎙️ वॉयस नोट रजिस्टर हो गया है!")
+        st.session_state.voice_training = "\n[User provided an extra voice description about their identity/behavior for deep learning.]"
 
     st.write("---")
-    if st.button("💾 SAVE & RE-SYNC CORE 🧠", use_container_width=True):
+    if st.button("💾 SAVE TRAINING & SYNC 🧠", use_container_width=True):
         st.session_state.master_training = extra_text
-        st.success("आपकी नयी बारीकियाँ एआई कोर में सेव हो चुकी हैं!")
+        st.success("बॉट ने नया डेटा सीख लिया है!")
         st.session_state.current_view = "chat"
         st.rerun()
 
-# --- VIEW C: CENTRAL CHAT ROOM (All Features Retained) ---
+# --- VIEW 3: CENTRAL CHAT ROOM ---
 elif st.session_state.current_view == "chat":
     st.title("🧠 Omni-Intelligent Digital Twin")
     st.write("---")
@@ -152,7 +142,7 @@ elif st.session_state.current_view == "chat":
         else:
             st.markdown(f'<div class="twin-msg-container"><div class="twin-msg">🧠 <b>Mirror Twin:</b><br>{message["content"]}</div></div>', unsafe_allow_html=True)
             
-            # पुराना क्रैश-प्रूफ शेयर बटन सुरक्षित है
+            # पुराना क्रैश-प्रूफ शेयर बटन
             html_btn = f"""
             <button onclick="share()" style="background-color: #3a3b3c; color: #e4e6eb; border: none; padding: 6px 12px; border-radius: 12px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; font-family: sans-serif;">🔗 Share / Send to Apps</button>
             <script>
@@ -180,7 +170,6 @@ elif st.session_state.current_view == "chat":
             current_ai = st.session_state.saved_ai
             current_key = st.session_state.saved_key
             
-            # प्रॉम्प्ट में वॉयस का सिंक भी जोड़ दिया ताकि इंटेलिजेंस बढ़े
             master_prompt = f"""
             MASTER DIRECTIVE: Replicate user's behavior based on this data: 
             TEXT MEMORY: {st.session_state.master_training}
@@ -218,4 +207,4 @@ elif st.session_state.current_view == "chat":
             
         except Exception as e:
             st.error(f"एरर आया: {e}")
-            
+    
