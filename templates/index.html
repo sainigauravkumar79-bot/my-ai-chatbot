@@ -1,1 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gaurav AI Twin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <style>
+        body{
+            background:#0f172a;
+            color:white;
+            font-family:Arial;
+            margin:0;
+        }
+
+        .header{
+            background:#1e293b;
+            padding:15px;
+            text-align:center;
+            font-size:22px;
+            font-weight:bold;
+        }
+
+        #chat{
+            height:70vh;
+            overflow-y:auto;
+            padding:10px;
+        }
+
+        .user{
+            background:#2563eb;
+            padding:10px;
+            margin:10px;
+            border-radius:10px;
+            text-align:right;
+        }
+
+        .bot{
+            background:#334155;
+            padding:10px;
+            margin:10px;
+            border-radius:10px;
+        }
+
+        .bottom{
+            display:flex;
+            padding:10px;
+            gap:10px;
+        }
+
+        input{
+            flex:1;
+            padding:12px;
+            border:none;
+            border-radius:10px;
+        }
+
+        button{
+            padding:12px;
+            border:none;
+            border-radius:10px;
+            background:#22c55e;
+            color:white;
+            font-weight:bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    🤖 Gaurav AI Twin
+</div>
+
+<div id="chat"></div>
+
+<div class="bottom">
+    <input id="message" placeholder="Message...">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+
+async function sendMessage(){
+
+    let input=document.getElementById("message");
+    let text=input.value;
+
+    if(!text) return;
+
+    let chat=document.getElementById("chat");
+
+    chat.innerHTML +=
+    `<div class="user">${text}</div>`;
+
+    input.value="";
+
+    let response=await fetch("/api/process_command",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+            command:text,
+            live_search:false
+        })
+    });
+
+    let data=await response.json();
+
+    chat.innerHTML +=
+    `<div class="bot">${data.response}</div>`;
+
+    chat.scrollTop=chat.scrollHeight;
+}
+
+</script>
+
+</body>
+</html>
