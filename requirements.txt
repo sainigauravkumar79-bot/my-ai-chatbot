@@ -1,6 +1,1 @@
-flask
-openai
-google-generativeai
-groq
-beautifulsoup4
-gunicorn
+streamlt
